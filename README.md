@@ -99,16 +99,3 @@ All of the code is in `main.c`:
 | `get_max_score`, `check_for_best_score` | Read and update the best score |
 
 The board size, starting length and number of food items are defined as constants at the top of the file. The save format and the `Food` struct assume two food items.
-
-## Known issues
-
-- The first game after launching the program starts with 10 points, because the first key press adds a segment.
-- If the first key press in a game is not a movement key, the game ends immediately.
-- Games started after the first one, in the same session, begin moving straight away in the previous direction.
-- Food can appear on top of the snake or on the other piece of food.
-- The final score is cleared from the screen as soon as the game ends.
-
-## Authors
-
-- Saif Hmaied
-- Ayoub Sliti
