@@ -4,11 +4,7 @@ A classic Snake game for the Windows console, written in C. The snake is stored 
 
 The in-game menu and messages are in French.
 
-## Play the demo
-
-**[Play it in your browser](https://saif-hmaied.github.io/snake-game/)**, no compiler needed.
-
-The demo is a JavaScript version of the game in [`docs/index.html`](docs/index.html). It uses the same board, rules, menu and controls, with arrow keys and touch controls added. The save and best score are kept in your browser instead of text files.
+![Snake game running in the Windows console](assets/demo.gif)
 
 ## Features
 
