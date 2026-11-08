@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake Game - Demo</title>
+<style>
+  :root {
+    --bg: #0c0c0c;
+    --text: #cccccc;
+    --dim: #767676;
+    --wall: #8a8a8a;
+    --food: #e74856;
+    --snake: #16c60c;
+    --head: #f9f1a5;
+    --accent: #3a96dd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #1e1e1e;
+    color: var(--text);
+    font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 12px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; color: #fff; }
+  .subtitle { margin: 0 0 20px; color: var(--dim); font-size: 0.9rem; text-align: center; }
+  .window {
+    background: var(--bg);
+    border: 1px solid #333;
+    border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+  .titlebar {
+    background: #2d2d2d;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    color: #aaa;
+  }
+  .screen {
+    padding: 14px 18px;
+    min-width: 330px;
+    min-height: 430px;
+    outline: none;
+  }
+  pre {
+    margin: 0;
+    font: inherit;
+    font-size: 18px;
+    line-height: 1.05;
+    letter-spacing: 0.35em;
+    white-space: pre;
+  }
+  .w { color: var(--wall); }
+  .f { color: var(--food); }
+  .s { color: var(--snake); }
+  .h { color: var(--head); font-weight: bold; }
+  .info { margin-top: 10px; font-size: 15px; white-space: pre-line; }
+  .menu { font-size: 15px; line-height: 1.6; white-space: pre; letter-spacing: 0; }
+  .menu button {
+    all: unset;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .menu button:hover, .menu button:focus-visible { color: #fff; background: #333; }
+  .msg { color: var(--food); }
+  .pad {
+    display: none;
+    margin-top: 16px;
+    grid-template-columns: repeat(3, 56px);
+    grid-template-rows: repeat(2, 56px);
+    gap: 6px;
+  }
+  .pad button {
+    font: inherit;
+    font-size: 1.2rem;
+    background: #2d2d2d;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 8px;
+    touch-action: manipulation;
+  }
+  .pad .up { grid-column: 2; }
+  .pad .save { grid-column: 3; grid-row: 1; font-size: 0.8rem; }
+  .pad .left { grid-column: 1; grid-row: 2; }
+  .pad .down { grid-column: 2; grid-row: 2; }
+  .pad .right { grid-column: 3; grid-row: 2; }
+  @media (pointer: coarse) { .pad { display: grid; } }
+  .help {
+    margin-top: 22px;
+    max-width: 520px;
+    font-size: 0.85rem;
+    color: var(--dim);
+    line-height: 1.6;
+  }
+  .help table { border-collapse: collapse; margin: 6px 0 12px; }
+  .help td { padding: 2px 14px 2px 0; }
+  kbd {
+    background: #2d2d2d;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 0 5px;
+    color: #ddd;
+    font-family: inherit;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+  <h1>Snake Game</h1>
+  <p class="subtitle">Browser demo of the C console game. Same board, same rules, same French menu.</p>
+
+  <div class="window">
+    <div class="titlebar">C:\snake-game\main.exe</div>
+    <div class="screen" id="screen" tabindex="0"></div>
+  </div>
+
+  <div class="pad" id="pad">
+    <button class="up" data-key="z">&#9650;</button>
+    <button class="save" data-key="a">Save</button>
+    <button class="left" data-key="q">&#9664;</button>
+    <button class="down" data-key="s">&#9660;</button>
+    <button class="right" data-key="d">&#9654;</button>
+  </div>
+
+  <div class="help">
+    <strong>Controls</strong> (AZERTY layout, like the original; arrow keys work too)
+    <table>
+      <tr><td><kbd>z</kbd> / <kbd>&uarr;</kbd></td><td>Move up</td></tr>
+      <tr><td><kbd>s</kbd> / <kbd>&darr;</kbd></td><td>Move down</td></tr>
+      <tr><td><kbd>q</kbd> / <kbd>&larr;</kbd></td><td>Move left</td></tr>
+      <tr><td><kbd>d</kbd> / <kbd>&rarr;</kbd></td><td>Move right</td></tr>
+      <tr><td><kbd>a</kbd> / <kbd>Esc</kbd></td><td>Save and return to the menu</td></tr>
+    </table>
+    Each <span class="f">+</span> adds one segment and 10 points. Hitting a wall or your own body ends the game.
+    The save and best score are kept in your browser.
+    <br><a href="https://github.com/saif-hmaied/snake-game">Source code on GitHub</a>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Same constants as main.c
+  var ROWS = 20;
+  var COLUMNS = 20;
+  var NUMBER_OF_FOOD = 2;
+  var STEP_MS = 200;
+
+  var BEST_KEY = "snake-game.best_score";
+  var SAVE_KEY = "snake-game.last_saved_game";
+
+  var screen = document.getElementById("screen");
+
+  var state = "menu";
+  var menuMessage = "";
+  var snake = [];          // array of {x, y}, head first (x = row, y = column)
+  var food = [];
+  var dir = null;          // {dx, dy, head}
+  var queue = [];          // pending direction changes
+  var timer = null;
+
+  var DIRS = {
+    z: { dx: -1, dy: 0, head: "^" },
+    s: { dx: 1, dy: 0, head: "v" },
+    q: { dx: 0, dy: -1, head: "<" },
+    d: { dx: 0, dy: 1, head: ">" }
+  };
+
+  function getBestScore() {
+    return parseInt(localStorage.getItem(BEST_KEY), 10) || 0;
+  }
+
+  function checkForBestScore() {
+    var score = getScore();
+    if (score > getBestScore()) {
+      localStorage.setItem(BEST_KEY, String(score));
+      return true;
+    }
+    return false;
+  }
+
+  function getScore() {
+    return (snake.length - 1) * 10;
+  }
+
+  function randInt(min, max) {
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
+  function isOccupied(x, y) {
+    var i;
+    for (i = 0; i < snake.length; i++) {
+      if (snake[i].x === x && snake[i].y === y) return true;
+    }
+    for (i = 0; i < food.length; i++) {
+      if (food[i].x === x && food[i].y === y) return true;
+    }
+    return false;
+  }
+
+  function placeFood() {
+    var x, y;
+    do {
+      x = randInt(1, ROWS - 2);
+      y = randInt(1, COLUMNS - 2);
+    } while (isOccupied(x, y));
+    return { x: x, y: y };
+  }
+
+  function setupGame() {
+    snake = [{ x: randInt(1, ROWS - 4), y: randInt(1, COLUMNS - 4) }];
+    food = [];
+    for (var i = 0; i < NUMBER_OF_FOOD; i++) food.push(placeFood());
+    dir = null;
+    queue = [];
+  }
+
+  function saveGame() {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      snake: snake,
+      food: food,
+      dir: dir ? keyForDir(dir) : null
+    }));
+  }
+
+  function keyForDir(d) {
+    for (var k in DIRS) if (DIRS[k] === d) return k;
+    return null;
+  }
+
+  function hasSavedGame() {
+    return localStorage.getItem(SAVE_KEY) !== null;
+  }
+
+  function setupSavedGame() {
+    var data = JSON.parse(localStorage.getItem(SAVE_KEY));
+    localStorage.removeItem(SAVE_KEY);   // a save can be continued once
+    snake = data.snake;
+    food = data.food;
+    dir = data.dir ? DIRS[data.dir] : null;
+    queue = [];
+  }
+
+  function moveSnake() {
+    if (queue.length) {
+      var next = queue.shift();
+      var reverse = dir && next.dx === -dir.dx && next.dy === -dir.dy;
+      if (!reverse || snake.length === 1) dir = next;
+    }
+    if (!dir) return;
+
+    var head = { x: snake[0].x + dir.dx, y: snake[0].y + dir.dy };
+
+    if (head.x === 0 || head.y === 0 || head.x === ROWS - 1 || head.y === COLUMNS - 1) {
+      return gameOver();
+    }
+    // The tail moves out of the way this step, so it is not a collision
+    for (var i = 0; i < snake.length - 1; i++) {
+      if (snake[i].x === head.x && snake[i].y === head.y) return gameOver();
+    }
+
+    snake.unshift(head);
+    var ate = false;
+    for (var j = 0; j < food.length; j++) {
+      if (food[j].x === head.x && food[j].y === head.y) {
+        ate = true;
+        food.splice(j, 1);
+        food.push(placeFood());
+        break;
+      }
+    }
+    if (!ate) snake.pop();
+  }
+
+  function tick() {
+    moveSnake();
+    if (state === "playing") render();
+  }
+
+  function startPlaying() {
+    state = "playing";
+    stopTimer();
+    timer = setInterval(tick, STEP_MS);
+    render();
+  }
+
+  function stopTimer() {
+    if (timer !== null) {
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function gameOver() {
+    stopTimer();
+    state = "over";
+    var newBest = checkForBestScore();
+    render(newBest);
+  }
+
+  function toMenu(message) {
+    stopTimer();
+    state = "menu";
+    menuMessage = message || "";
+    render();
+  }
+
+  function boardHtml(crashed) {
+    var grid = [];
+    var x, y, i;
+    for (x = 0; x < ROWS; x++) {
+      grid.push([]);
+      for (y = 0; y < COLUMNS; y++) {
+        var wall = x === 0 || y === 0 || x === ROWS - 1 || y === COLUMNS - 1;
+        grid[x].push(wall ? '<span class="w">#</span>' : " ");
+      }
+    }
+    for (i = 0; i < food.length; i++) {
+      grid[food[i].x][food[i].y] = '<span class="f">+</span>';
+    }
+    for (i = snake.length - 1; i >= 1; i--) {
+      grid[snake[i].x][snake[i].y] = '<span class="s">*</span>';
+    }
+    var headChar = crashed ? "X" : dir ? dir.head : "@";
+    grid[snake[0].x][snake[0].y] = '<span class="h">' + headChar + "</span>";
+    return grid.map(function (row) { return row.join(""); }).join("\n");
+  }
+
+  function render(newBest) {
+    if (state === "menu") {
+      var lines =
+        "*************** MENU ***************\n\n" +
+        "     Meilleur Score : " + getBestScore() + "\n\n" +
+        '     <button data-key="1">1-Continuer la Partie</button>\n' +
+        '     <button data-key="2">2-Nouvelle Partie</button>\n' +
+        '     <button data-key="3">3-Quitter le jeu</button>\n';
+      if (menuMessage) lines += '\n<span class="msg">' + menuMessage + "</span>";
+      screen.innerHTML = '<div class="menu">' + lines + "</div>";
+      return;
+    }
+    if (state === "quit") {
+      screen.innerHTML =
+        '<div class="menu">Merci d\'avoir joué !\n\n' +
+        '<button data-key="enter">Appuyez sur Entrée pour revenir au menu</button></div>';
+      return;
+    }
+
+    var info;
+    if (state === "playing") {
+      info = "Votre score est : " + getScore();
+      if (!dir) info += "\nAppuyez sur z, q, s ou d pour commencer";
+    } else {
+      info = "Votre score finale est : " + getScore();
+      if (newBest) info += "\nNouveau meilleur score !";
+      info += '\n<button class="menu" data-key="enter" style="all:unset;cursor:pointer">' +
+        "Appuyez sur Entrée pour revenir au menu</button>";
+    }
+    screen.innerHTML =
+      "<pre>" + boardHtml(state === "over") + "</pre>" +
+      '<div class="info">' + info + "</div>";
+  }
+
+  function handleKey(key) {
+    if (state === "menu") {
+      if (key === "1") {
+        if (!hasSavedGame()) {
+          toMenu("There is no saved games!!\nPlease begin a new one!!");
+        } else {
+          setupSavedGame();
+          startPlaying();
+        }
+      } else if (key === "2") {
+        setupGame();
+        startPlaying();
+      } else if (key === "3") {
+        state = "quit";
+        render();
+      }
+      return;
+    }
+
+    if (state === "over" || state === "quit") {
+      if (key === "enter" || key === " ") toMenu();
+      return;
+    }
+
+    // playing
+    if (key === "a") {
+      saveGame();
+      toMenu("Partie sauvegardée.");
+      return;
+    }
+    var d = DIRS[key];
+    if (d) {
+      var last = queue.length ? queue[queue.length - 1] : dir;
+      if (d !== last && queue.length < 3) queue.push(d);
+      render();
+    }
+  }
+
+  var KEY_MAP = {
+    ArrowUp: "z", ArrowDown: "s", ArrowLeft: "q", ArrowRight: "d",
+    Escape: "a", Enter: "enter"
+  };
+
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var key = KEY_MAP[e.key] || e.key;
+    if (key.length === 1) key = key.toLowerCase();
+    var handled = ["z", "q", "s", "d", "a", "1", "2", "3", "enter", " "];
+    if (handled.indexOf(key) !== -1) {
+      e.preventDefault();
+      handleKey(key);
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-key]");
+    if (btn) handleKey(btn.getAttribute("data-key"));
+  });
+
+  // Swipe on the board for touch screens
+  var touchStart = null;
+  screen.addEventListener("touchstart", function (e) {
+    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  screen.addEventListener("touchend", function (e) {
+    if (!touchStart || state !== "playing") return;
+    var dx = e.changedTouches[0].clientX - touchStart.x;
+    var dy = e.changedTouches[0].clientY - touchStart.y;
+    touchStart = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) handleKey(dx > 0 ? "d" : "q");
+    else handleKey(dy > 0 ? "s" : "z");
+  });
+
+  render();
+  screen.focus();
+})();
+</script>
+</body>
+</html>
